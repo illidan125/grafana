@@ -1,7 +1,14 @@
 import _ from 'lodash';
 import moment from 'moment';
 import q from 'q';
-import { alignRange, PrometheusDatasource, prometheusSpecialRegexEscape, prometheusRegularEscape } from '../datasource';
+import {
+  alignRange,
+  PrometheusDatasource,
+  prometheusSpecialRegexEscape,
+  prometheusRegularEscape,
+  addLabelToQuery,
+} from '../datasource';
+
 jest.mock('../metric_find_query');
 
 describe('PrometheusDatasource', () => {
@@ -244,5 +251,18 @@ describe('PrometheusDatasource', () => {
       expect(interval).toEqual({ text: '15s', value: '15s' });
       expect(intervalMs).toEqual({ text: 15000, value: 15000 });
     });
+  });
+
+  describe('addLabelToQuery()', () => {
+    expect(() => {
+      addLabelToQuery('foo', '', '');
+    }).toThrow();
+    expect(addLabelToQuery('foo', 'bar', 'baz')).toBe('foo{bar="baz"}');
+    expect(addLabelToQuery('foo{}', 'bar', 'baz')).toBe('foo{bar="baz"}');
+    expect(addLabelToQuery('foo{x="yy"}', 'bar', 'baz')).toBe('foo{bar="baz",x="yy"}');
+    expect(addLabelToQuery('avg(foo) + sum(xx_yy)', 'bar', 'baz')).toBe('avg(foo{bar="baz"}) + sum(xx_yy{bar="baz"})');
+    expect(addLabelToQuery('foo{x="yy"} * metric{y="zz",a="bb"} * metric2', 'bar', 'baz')).toBe(
+      'foo{bar="baz",x="yy"} * metric{a="bb",bar="baz",y="zz"} * metric2'
+    );
   });
 });
