@@ -257,12 +257,14 @@ describe('PrometheusDatasource', () => {
     expect(() => {
       addLabelToQuery('foo', '', '');
     }).toThrow();
-    expect(addLabelToQuery('foo', 'bar', 'baz')).toBe('foo{bar="baz"}');
+    expect(addLabelToQuery('foo + foo', 'bar', 'baz')).toBe('foo{bar="baz"} + foo{bar="baz"}');
     expect(addLabelToQuery('foo{}', 'bar', 'baz')).toBe('foo{bar="baz"}');
     expect(addLabelToQuery('foo{x="yy"}', 'bar', 'baz')).toBe('foo{bar="baz",x="yy"}');
+    expect(addLabelToQuery('foo{x="yy"} + metric', 'bar', 'baz')).toBe('foo{bar="baz",x="yy"} + metric{bar="baz"}');
     expect(addLabelToQuery('avg(foo) + sum(xx_yy)', 'bar', 'baz')).toBe('avg(foo{bar="baz"}) + sum(xx_yy{bar="baz"})');
     expect(addLabelToQuery('foo{x="yy"} * metric{y="zz",a="bb"} * metric2', 'bar', 'baz')).toBe(
-      'foo{bar="baz",x="yy"} * metric{a="bb",bar="baz",y="zz"} * metric2'
+      'foo{bar="baz",x="yy"} * metric{a="bb",bar="baz",y="zz"} * metric2{bar="baz"}'
     );
+    expect(addLabelToQuery('sum by (xx) (foo)', 'bar', 'baz')).toBe('sum by (xx) (foo{bar="baz"})');
   });
 });

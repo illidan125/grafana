@@ -16,18 +16,40 @@ export function alignRange(start, end, step) {
   };
 }
 
+const keywords = 'by|without|on|ignoring|group_left|group_right';
+const builtInWords = [
+  keywords,
+  'count|count_values|min|max|avg|sum|stddev|stdvar|bottomk|topk|quantile',
+  'true|false|null|__name__|job',
+  'abs|absent|ceil|changes|clamp_max|clamp_min|count_scalar|day_of_month|day_of_week|days_in_month|delta|deriv',
+  'drop_common_labels|exp|floor|histogram_quantile|holt_winters|hour|idelta|increase|irate|label_replace|ln|log2',
+  'log10|minute|month|predict_linear|rate|resets|round|scalar|sort|sort_desc|sqrt|time|vector|year|avg_over_time',
+  'min_over_time|max_over_time|sum_over_time|count_over_time|quantile_over_time|stddev_over_time|stdvar_over_time',
+]
+  .join('|')
+  .split('|');
+
 // addLabelToQuery('foo', 'bar', 'baz') => 'foo{bar="baz"}'
 export function addLabelToQuery(query: string, key: string, value: string): string {
-  const selectorRegexp = /{([^{]*)}/g;
   if (!key || !value) {
     throw new Error('Need label to add to query.');
   }
-  // Simple case when no selectors are present
-  if (!query.match(selectorRegexp)) {
-    return query.replace(/(\w+)\b(?!\()/g, '$1' + `{${key}="${value}"}`);
-  }
+
+  // Add empty selector to bare metric name
+  let previousWord;
+  query = query.replace(/(\w+)\b(?![\({=",])/g, (match, word) => {
+    // Handle "sum by (key) (metric)"
+    const previousWordisKeyWord = previousWord && keywords.split('|').indexOf(previousWord) > -1;
+    previousWord = word;
+    if (builtInWords.indexOf(word) === -1 && !previousWordisKeyWord) {
+      return `${word}{}`;
+    }
+    return word;
+  });
+
   // Adding label to existing selectors
-  let match;
+  const selectorRegexp = /{([^{]*)}/g;
+  let match = null;
   const parts = [];
   let lastIndex = 0;
   let suffix = '';
@@ -46,7 +68,7 @@ export function addLabelToQuery(query: string, key: string, value: string): stri
       .sort()
       .map(key => `${key}=${labels[key]}`)
       .join(',');
-    lastIndex = match.index + selector.length - match[0].length;
+    lastIndex = match.index + match[1].length + 2;
     suffix = query.slice(match.index + match[0].length);
     parts.push(prefix, '{', selector, '}');
   }
